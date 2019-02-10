@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from six.moves import urllib
 from sklearn.model_selection import StratifiedShuffleSplit
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 from sklearn.base import BaseEstimator, TransformerMixin
 # from sklearn.pipeline import FeatureUnion
 
@@ -19,7 +19,8 @@ HOUSING_PATH = os.path.join("datasets", "housing")
 HOUSING_URL = DOWNLOAD_ROOT + "datasets/housing/housing.tgz"
 
 
-def fetch_tgz_data(tgz_url=HOUSING_URL, data_path=HOUSING_PATH, file_name="housing.tgz"):
+def fetch_tgz_data(tgz_url=HOUSING_URL, data_path=HOUSING_PATH,
+                   file_name="housing.tgz"):
     """
     A function to fetch and extract data
     """
@@ -85,7 +86,8 @@ def split_train_test_stratified(data, \
     assert strat_column is not None, "strat_column may not be None"
     assert strat_column != "", "Please provide a strat_column value"
 
-    split = StratifiedShuffleSplit(n_splits=1, test_size=test_ratio, random_state=random_state)
+    split = StratifiedShuffleSplit(n_splits=1, test_size=test_ratio,
+                                   random_state=random_state)
     for train_index, test_index in split.split(data, data[strat_column]):
         strat_train_set = data.loc[train_index]
         strat_test_set = data.loc[test_index]
@@ -137,7 +139,9 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
     A Transformer to one hot-encode a given category of data
     """
     def __init__(self):
-        self.categories = None
+        self.categories_ = None
+        self._one_hot_encoder = OneHotEncoder(sparse=False)
+        self._ordinal_encoder = OrdinalEncoder()
 
     def fit(self, X, y=None):  # pylint: disable=invalid-name,unused-argument
         """
@@ -154,13 +158,32 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
         :param X:
         :return:
         """
-        vals = []
-        categories = []
-        x_t = X.transpose()
-        x_t = np.array(x_t)
-        print(x_t)
-        encoder = _CategoricalEncoder()
-        for col in x_t:
-            vals.append(encoder.fit_transform(col))
-            categories.append(encoder.unique_categories)
-        return np.array(vals)
+        ordinal_data = self._ordinal_encoder.fit_transform(X)
+        self.categories_ = self._ordinal_encoder.categories_
+        return self._one_hot_encoder.fit_transform(ordinal_data)
+
+    def inverse_transform(self, X):  # pylint: disable=invalid-name,no-self-use
+        """
+        Return the original data, given transformed data
+        """
+        ordinal_data = self._one_hot_encoder.inverse_transform(X)
+        return self._ordinal_encoder.inverse_transform(ordinal_data)
+
+class DataFrameSelector(BaseEstimator, TransformerMixin):
+    """
+    Transformer to select subset of columns of a given dataframe
+    """
+    def __init__(self, attribute_names):
+        self.attribute_names = attribute_names
+
+    def fit(self, X, y=None):  # pylint: disable=invalid-name,unused-argument
+        """
+        Not applicable, do nothing
+        """
+        return self
+
+    def transform(self, X):  # pylint: disable=invalid-name
+        """
+        Select the required columns
+        """
+        return X[self.attribute_names].to_numpy()
