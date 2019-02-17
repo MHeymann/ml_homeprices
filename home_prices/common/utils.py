@@ -140,7 +140,8 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
     """
     def __init__(self):
         self.categories_ = None
-        self._one_hot_encoder = OneHotEncoder(sparse=False)
+        self._one_hot_encoder = OneHotEncoder(sparse=False,
+                                              categories='auto')
         self._ordinal_encoder = OrdinalEncoder()
 
     def fit(self, X, y=None):  # pylint: disable=invalid-name,unused-argument
